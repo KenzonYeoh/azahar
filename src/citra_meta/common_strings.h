@@ -17,6 +17,8 @@ constexpr char help_string[] =
     "-g, --gdbport [port]        Enable gdb stub on the given port\n"
     "-h, --help                  Display this help and exit\n"
     "-i, --install [path]        Install a CIA file at the given path\n"
+    "-L, --load-state [slot]     Load the save state in the given slot once the game is\n"
+    "                              running (0 is the quicksave slot)\n"
     "-p, --movie-play [path]     Play a TAS movie located at the given path\n"
     "-r, --movie-record [path]   Record a TAS movie to the given file path\n"
     "-a, --movie-record-author [author]   Set the author for the recorded TAS movie (to be used "
