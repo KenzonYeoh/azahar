@@ -193,10 +193,17 @@ void Movie::serialize(Archive& ar, const unsigned int file_version) {
         if (read_only) {
             if (play_mode == PlayMode::Recording) {
                 SaveMovie();
+                // While recording, recorded_input grows as play proceeds, so a savestate holding
+                // more input than we have is one from a future that has not happened yet.
+                if (recorded_input_.size() >= recorded_input.size()) {
+                    throw std::runtime_error("Future event savestate not allowed in R/O mode");
+                }
             }
-            if (recorded_input_.size() >= recorded_input.size()) {
-                throw std::runtime_error("Future event savestate not allowed in R/O mode");
-            }
+            // During playback that test is meaningless and always true: recorded_input holds the
+            // whole movie from the first frame, so both sides are the same size no matter where
+            // the state was taken, and every load was rejected. Position is current_byte, which
+            // was already restored above. Seeking to any point of the same movie is exactly what
+            // savestates are for.
             // Ensure that the current movie and savestate movie are in the same timeline
             if (std::mismatch(recorded_input_.begin(), recorded_input_.end(),
                               recorded_input.begin())
