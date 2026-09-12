@@ -402,6 +402,13 @@ private:
     bool movie_playback_on_start = false;
     QString movie_playback_path;
 
+    // Load a save state shortly after boot, so a scripted run needs no window focus.
+    // Posted key events do not reach Qt's shortcuts while another process owns the
+    // foreground, which makes the quick-load hotkey useless to drive from a script.
+    bool load_state_on_start = false;
+    u32 load_state_slot = 0;
+    static constexpr int load_state_delay_ms = 35000;
+
     // Video dumping
     bool video_dumping_on_start = false;
     QString video_dumping_path;

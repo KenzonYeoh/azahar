@@ -342,6 +342,15 @@ GMainWindow::GMainWindow(Core::System& system_)
             exit(0);
         }
 
+        if (args[i] == QStringLiteral("--load-state") || args[i] == QStringLiteral("-L")) {
+            if (i >= args.size() - 1 || args[i + 1].startsWith(QChar::fromLatin1('-'))) {
+                continue;
+            }
+            load_state_slot = args[++i].toUInt();
+            load_state_on_start = true;
+            continue;
+        }
+
         if (args[i] == QStringLiteral("--movie-play") || args[i] == QStringLiteral("-p")) {
             if (i >= args.size() - 1 || args[i + 1].startsWith(QChar::fromLatin1('-'))) {
                 continue;
@@ -1562,6 +1571,21 @@ void GMainWindow::BootGame(const QString& filename) {
     }
 
     ui->action_Advance_Frame->setEnabled(false);
+
+    if (load_state_on_start) {
+        // Nothing can load before the CPU loop is running and the movie is in playback, so
+        // this waits instead of firing here. Boot to the movie's first frame takes ~30 s.
+        const u32 slot = load_state_slot;
+        load_state_on_start = false;
+        QTimer::singleShot(load_state_delay_ms, this, [this, slot] {
+            if (!system.IsPoweredOn()) {
+                return;
+            }
+            LOG_INFO(Frontend, "Loading save state slot {} from the command line", slot);
+            system.SendSignal(Core::System::Signal::Load, slot);
+            system.frame_limiter.AdvanceFrame();
+        });
+    }
 
     if (video_dumping_on_start) {
         StartVideoDumping(video_dumping_path);
