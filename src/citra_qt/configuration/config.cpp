@@ -518,6 +518,8 @@ void QtConfig::ReadDebuggingValues() {
         qt_config->value(Settings::QKeys::record_frame_times, false).toBool();
     ReadBasicSetting(Settings::values.use_gdbstub);
     ReadBasicSetting(Settings::values.gdbstub_port);
+    // pa3ds: persisted so movie replays can load files at the same emulated moment every run.
+    ReadBasicSetting(Settings::values.deterministic_async_operations);
     ReadBasicSetting(Settings::values.renderer_debug);
     ReadBasicSetting(Settings::values.pica_debugging);
     ReadBasicSetting(Settings::values.dump_command_buffers);
@@ -1110,6 +1112,7 @@ void QtConfig::SaveDebuggingValues() {
     qt_config->setValue(Settings::QKeys::record_frame_times, Settings::values.record_frame_times);
     WriteBasicSetting(Settings::values.use_gdbstub);
     WriteBasicSetting(Settings::values.gdbstub_port);
+    WriteBasicSetting(Settings::values.deterministic_async_operations);
     WriteBasicSetting(Settings::values.renderer_debug);
     WriteBasicSetting(Settings::values.pica_debugging);
     WriteBasicSetting(Settings::values.instant_debug_log);
