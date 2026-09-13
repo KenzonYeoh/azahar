@@ -1647,7 +1647,39 @@ void GMainWindow::BootGame(const QString& filename) {
         ShowFullscreen();
     }
 
+    connect(&state_request_timer, &QTimer::timeout, this, &GMainWindow::PollStateRequests,
+            Qt::UniqueConnection);
+    state_request_timer.start(state_request_interval_ms);
+
     OnResumeGame(true);
+}
+
+void GMainWindow::PollStateRequests() {
+    if (!system.IsPoweredOn()) {
+        return;
+    }
+    const QDir user_dir(QString::fromStdString(FileUtil::GetUserPath(FileUtil::UserPath::UserDir)));
+    const std::pair<const char*, Core::System::Signal> requests[] = {
+        {"pa3ds-save-state", Core::System::Signal::Save},
+        {"pa3ds-load-state", Core::System::Signal::Load},
+    };
+    for (const auto& [name, signal] : requests) {
+        QFile request(user_dir.filePath(QString::fromLatin1(name)));
+        if (!request.exists() || !request.open(QIODevice::ReadOnly)) {
+            continue;
+        }
+        bool valid = false;
+        const u32 slot = QString::fromUtf8(request.readAll()).trimmed().toUInt(&valid);
+        request.close();
+        request.remove();
+        if (!valid) {
+            LOG_WARNING(Frontend, "Ignoring {}: it does not hold a slot number", name);
+            continue;
+        }
+        LOG_INFO(Frontend, "{} slot {} on request", name, slot);
+        system.SendSignal(signal, slot);
+        system.frame_limiter.AdvanceFrame();
+    }
 }
 
 void GMainWindow::ShutdownGame() {
@@ -1728,6 +1760,7 @@ void GMainWindow::ShutdownGame() {
 
     // Disable status bar updates
     status_bar_update_timer.stop();
+    state_request_timer.stop();
     message_label_used_for_movie = false;
     show_artic_label = false;
     loading_shaders_label->setVisible(false);

@@ -409,6 +409,13 @@ private:
     u32 load_state_slot = 0;
     static constexpr int load_state_delay_ms = 35000;
 
+    // Save or load a state when a script asks, by writing a slot number into pa3ds-save-state
+    // or pa3ds-load-state in the user folder. A replay can then be stopped just before a moment
+    // worth studying and resumed there later, still with no window focus.
+    QTimer state_request_timer;
+    static constexpr int state_request_interval_ms = 100;
+    void PollStateRequests();
+
     // Video dumping
     bool video_dumping_on_start = false;
     QString video_dumping_path;
