@@ -222,8 +222,9 @@ void System::LoadState(u32 slot) {
         // validate header
         SaveStateInfo info;
         info.slot = slot;
-        if (!ValidateSaveState(header, info, title_id, movie_id) ||
-            info.status == SaveStateInfo::ValidationStatus::BuildMismatch) {
+        // pa3ds: a state from another build of this fork still loads. The fork's own changes
+        // never touch serialization, and refusing strands every state at each rebuild.
+        if (!ValidateSaveState(header, info, title_id, movie_id)) {
             throw std::runtime_error("Invalid savestate");
         }
 
