@@ -351,6 +351,11 @@ GMainWindow::GMainWindow(Core::System& system_)
             continue;
         }
 
+        if (args[i] == QStringLiteral("--background") || args[i] == QStringLiteral("-B")) {
+            start_in_background = true;
+            continue;
+        }
+
         if (args[i] == QStringLiteral("--movie-play") || args[i] == QStringLiteral("-p")) {
             if (i >= args.size() - 1 || args[i + 1].startsWith(QChar::fromLatin1('-'))) {
                 continue;
@@ -501,6 +506,13 @@ GMainWindow::GMainWindow(Core::System& system_)
     render_window->setWindowIcon(azahar_icon);
     secondary_window->setWindowIcon(azahar_icon);
 
+    if (start_in_background) {
+        // The render widgets pass this on to the native windows they create for the game.
+        setAttribute(Qt::WA_ShowWithoutActivating);
+        render_window->setAttribute(Qt::WA_ShowWithoutActivating);
+        secondary_window->setAttribute(Qt::WA_ShowWithoutActivating);
+    }
+
     show();
 
 #ifdef __APPLE__
@@ -586,7 +598,9 @@ void GMainWindow::InitializeWidgets() {
         if (emulation_running) {
             render_window->show();
             render_window->setFocus();
-            render_window->activateWindow();
+            if (!start_in_background) {
+                render_window->activateWindow();
+            }
         }
     });
 
@@ -2850,6 +2864,9 @@ void GMainWindow::UpdateSecondaryWindowVisibility() {
         secondary_window->hide();
     }
     // make sure focus is on primary window whenever this changes
+    if (start_in_background) {
+        return;
+    }
     if (UISettings::values.single_window_mode.GetValue()) {
         QApplication::setActiveWindow(this);
     } else {
