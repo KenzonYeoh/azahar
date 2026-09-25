@@ -12,6 +12,7 @@ constexpr char help_string[] =
     "Usage: {} [options] <file path>\n"
     "-B, --background            Never take the foreground: show every window without\n"
     "                              activating it\n"
+    "-D, --desktop [id]          Show the window on the Windows virtual desktop with this id\n"
     "-c  [path]                  Z3DS compress a ROM located at the given path\n"
     "                              (optionally provide '-o [path]' for output directory)\n"
     "-d, --dump-video [path]     Dump video recording of emulator playback to the given file path\n"
