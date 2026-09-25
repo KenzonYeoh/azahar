@@ -413,6 +413,10 @@ private:
     // from whatever the user is doing: a screen reader follows the foreground.
     bool start_in_background = false;
 
+    // The id of a Windows virtual desktop to show the main window on, if any: a scripted run kept
+    // off the desktop the user is working on.
+    QString start_on_desktop;
+
     // Save or load a state when a script asks, by writing a slot number into pa3ds-save-state
     // or pa3ds-load-state in the user folder. A replay can then be stopped just before a moment
     // worth studying and resumed there later, still with no window focus.

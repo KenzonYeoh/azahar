@@ -15,6 +15,7 @@
 #include <QMessageBox>
 #include <QPalette>
 #include <QSysInfo>
+#include <QUuid>
 #include <QtConcurrent/QtConcurrentMap>
 #include <QtConcurrent/QtConcurrentRun>
 #include <QtGui>
@@ -222,6 +223,33 @@ static QString PrettyProductName() {
     return QSysInfo::prettyProductName();
 }
 
+#ifdef _WIN32
+// Puts a window on a Windows virtual desktop, so a scripted run keeps off the one the user is on:
+// out of Alt+Tab and the taskbar, and out of reach of a stray minimise. IVirtualDesktopManager
+// moves only the calling process's own windows, which is why the emulator does it itself.
+static void MoveToVirtualDesktop(HWND window, const QString& desktop) {
+    const QUuid id(desktop);
+    if (id.isNull()) {
+        LOG_WARNING(Frontend, "Not a virtual desktop id: {}", desktop.toStdString());
+        return;
+    }
+    GUID guid{id.data1, id.data2, id.data3, {}};
+    std::copy(std::begin(id.data4), std::end(id.data4), std::begin(guid.Data4));
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED); // Qt has usually done it already
+    IVirtualDesktopManager* manager = nullptr;
+    HRESULT result = CoCreateInstance(__uuidof(VirtualDesktopManager), nullptr, CLSCTX_ALL,
+                                      IID_PPV_ARGS(&manager));
+    if (SUCCEEDED(result)) {
+        result = manager->MoveWindowToDesktop(window, guid);
+        manager->Release();
+    }
+    if (FAILED(result)) {
+        LOG_WARNING(Frontend, "Could not move to virtual desktop {}: {:#x}", desktop.toStdString(),
+                    static_cast<u32>(result));
+    }
+}
+#endif
+
 void GMainWindow::ShowCommandOutput(std::string title, std::string message) {
 #ifdef _WIN32
     boost::replace_all(message, " ", "\u00a0"); // Non-breaking space
@@ -353,6 +381,14 @@ GMainWindow::GMainWindow(Core::System& system_)
 
         if (args[i] == QStringLiteral("--background") || args[i] == QStringLiteral("-B")) {
             start_in_background = true;
+            continue;
+        }
+
+        if (args[i] == QStringLiteral("--desktop") || args[i] == QStringLiteral("-D")) {
+            if (i >= args.size() - 1 || args[i + 1].startsWith(QChar::fromLatin1('-'))) {
+                continue;
+            }
+            start_on_desktop = args[++i];
             continue;
         }
 
@@ -514,6 +550,11 @@ GMainWindow::GMainWindow(Core::System& system_)
     }
 
     show();
+#ifdef _WIN32
+    if (!start_on_desktop.isEmpty()) {
+        MoveToVirtualDesktop(reinterpret_cast<HWND>(winId()), start_on_desktop);
+    }
+#endif
 
 #ifdef __APPLE__
     if (AppleUtils::IsRunningFromTerminal()) {
