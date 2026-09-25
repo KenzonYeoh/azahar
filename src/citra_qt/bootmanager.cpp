@@ -264,6 +264,8 @@ class DummyContext : public Frontend::GraphicsContext {};
 class RenderWidget : public QWidget {
 public:
     RenderWidget(GRenderWindow* parent) : QWidget(parent) {
+        setAttribute(Qt::WA_ShowWithoutActivating,
+                     parent->testAttribute(Qt::WA_ShowWithoutActivating));
         setMouseTracking(true);
         update();
     }
@@ -739,6 +741,21 @@ void GRenderWindow::OnMinimalClientAreaChangeRequest(std::pair<u32, u32> minimal
     setMinimumSize(minimal_size.first, minimal_size.second);
 }
 
+#if defined(ENABLE_OPENGL) || defined(ENABLE_VULKAN)
+// Gives a render widget its native window. windowHandle()->create() makes it a top-level window
+// that Qt then moves inside its parent, and Windows activates it on the way, taking the foreground
+// from whatever the user is doing. winId() creates it inside its native parent from the start, as
+// a child window, which never does. Only a window asked not to activate (--background) takes that
+// path, so every other run is left as it was.
+static void CreateNativeWindow(const QWidget* parent, QWidget* child) {
+    if (parent->testAttribute(Qt::WA_ShowWithoutActivating)) {
+        child->winId();
+    } else {
+        child->windowHandle()->create();
+    }
+}
+#endif
+
 #ifdef ENABLE_OPENGL
 bool GRenderWindow::InitializeOpenGL() {
     if (!QOpenGLContext::supportsThreadedOpenGL()) {
@@ -751,7 +768,7 @@ bool GRenderWindow::InitializeOpenGL() {
     // WA_DontShowOnScreen, WA_DeleteOnClose
     auto child = new OpenGLRenderWidget(this, system, is_secondary);
     child_widget = child;
-    child_widget->windowHandle()->create();
+    CreateNativeWindow(this, child_widget);
 
     if (!main_context) {
         main_context = std::make_unique<OpenGLSharedContext>();
@@ -811,7 +828,7 @@ bool GRenderWindow::LoadOpenGL() {
 void GRenderWindow::InitializeVulkan() {
     auto child = new VulkanRenderWidget(this);
     child_widget = child;
-    child_widget->windowHandle()->create();
+    CreateNativeWindow(this, child_widget);
     main_context = std::make_unique<DummyContext>();
 }
 #endif
