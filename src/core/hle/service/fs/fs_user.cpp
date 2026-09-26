@@ -29,6 +29,7 @@
 #include "core/hle/service/am/am.h"
 #include "core/hle/service/fs/archive.h"
 #include "core/hle/service/fs/fs_user.h"
+#include "core/hle/service/fs/pa3ds_timing.h"
 #include "core/hw/aes/key.h"
 #include "core/hw/unique_data.h"
 
@@ -108,10 +109,11 @@ void FS_USER::OpenFile(Kernel::HLERequestContext& ctx) {
                                              async_data->mode, async_data->attributes);
             const auto time_took = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::steady_clock::now() - async_data->pre_timer);
-            return static_cast<s64>(((async_data->file.second > time_took)
-                                         ? (async_data->file.second - time_took)
-                                         : std::chrono::nanoseconds())
-                                        .count());
+            return Pa3dsTiming::Charge(
+                'o', static_cast<s64>(((async_data->file.second > time_took)
+                                                ? (async_data->file.second - time_took)
+                                                : std::chrono::nanoseconds())
+                                               .count()));
         },
         [async_data](Kernel::HLERequestContext& ctx) {
             IPC::RequestBuilder rb(ctx, 1, 2);
@@ -221,10 +223,11 @@ void FS_USER::OpenFileDirectly(Kernel::HLERequestContext& ctx) {
             archives.CloseArchive(*async_data->archive_handle);
             const auto time_took = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::steady_clock::now() - async_data->pre_timer);
-            return static_cast<s64>(((async_data->file.second > time_took)
-                                         ? (async_data->file.second - time_took)
-                                         : std::chrono::nanoseconds())
-                                        .count());
+            return Pa3dsTiming::Charge(
+                'd', static_cast<s64>(((async_data->file.second > time_took)
+                                                ? (async_data->file.second - time_took)
+                                                : std::chrono::nanoseconds())
+                                               .count()));
         },
         [async_data](Kernel::HLERequestContext& ctx) {
             IPC::RequestBuilder rb(ctx, 1, 2);
