@@ -10,8 +10,8 @@
 //
 // PA3DS_TIMING_OUT names a file each such charge is written to, "<ticks> <kind> <nanoseconds>".
 // PA3DS_TIMING_IN names such a file to charge from instead, by the emulated tick of the call. A
-// call the file has no charge for is charged as Azahar would, and logged: the replay is no longer
-// the run the file was taken from.
+// call the file has no charge for is charged as Azahar would, and logged if it comes before the
+// file's last charge: the replay is no longer the run the file was taken from.
 
 #pragma once
 
@@ -62,7 +62,8 @@ inline s64 Charge(char kind, s64 computed) {
     if (state.pinning) {
         if (const auto found = state.pinned.find({ticks, kind}); found != state.pinned.end()) {
             charged = found->second;
-        } else {
+        } else if (!state.pinned.empty() && ticks <= state.pinned.rbegin()->first.first) {
+            // Past the last pin is only past where the pinned run was stopped.
             LOG_WARNING(Service_FS, "pa3ds timing: no pinned charge at tick {} ({})", ticks, kind);
         }
     }
