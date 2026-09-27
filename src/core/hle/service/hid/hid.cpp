@@ -19,6 +19,7 @@
 #include "core/hle/kernel/shared_page.h"
 #include "core/hle/service/hid/hid.h"
 #include "core/hle/service/hid/hid_spvr.h"
+#include "core/hle/service/fs/pa3ds_timing.h"
 #include "core/hle/service/hid/hid_user.h"
 #include "core/hle/service/ir/ir_rst.h"
 #include "core/hle/service/ir/ir_user.h"
@@ -143,6 +144,13 @@ void Module::LoadInputDevices() {
 
 void Module::UpdatePadCallback(std::uintptr_t user_data, s64 cycles_late) {
     SharedMem* mem = reinterpret_cast<SharedMem*>(shared_mem->GetPointer());
+
+    // pa3ds: where the buttons' reads start, as scheduled: every later one is a fixed step on.
+    static bool first_marked = false;
+    if (!first_marked) {
+        first_marked = true;
+        Service::FS::Pa3dsTiming::MarkAt(system.CoreTiming().GetTicks() - cycles_late, 'P');
+    }
 
     if (is_device_reload_pending.exchange(false))
         LoadInputDevices();
@@ -448,6 +456,7 @@ void Module::Interface::EnableAccelerometer(Kernel::HLERequestContext& ctx) {
 
     // Schedules the accelerometer update event if the accelerometer was just enabled
     if (hid->enable_accelerometer_count == 1) {
+        Service::FS::Pa3dsTiming::Mark('A');
         hid->system.CoreTiming().ScheduleEvent(accelerometer_update_ticks,
                                                hid->accelerometer_update_event);
     }
@@ -479,6 +488,7 @@ void Module::Interface::DisableAccelerometer(Kernel::HLERequestContext& ctx) {
 
     // Unschedules the accelerometer update event if the accelerometer was just disabled
     if (hid->enable_accelerometer_count == 0) {
+        Service::FS::Pa3dsTiming::Mark('a');
         hid->system.CoreTiming().UnscheduleEvent(hid->accelerometer_update_event, 0);
     }
 

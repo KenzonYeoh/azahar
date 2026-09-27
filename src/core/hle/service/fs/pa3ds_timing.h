@@ -12,6 +12,11 @@
 // PA3DS_TIMING_IN names such a file to charge from instead, by the emulated tick of the call. A
 // call the file has no charge for is charged as Azahar would, and logged if it comes before the
 // file's last charge: the replay is no longer the run the file was taken from.
+//
+// The same file marks the first read of the buttons ("P"), and when the game turns the
+// accelerometer on ("A") and off ("a"), each with a charge of 0 that nothing is charged from.
+// Where the accelerometer's readings fall among the buttons' in a movie is the one place a
+// movie says when something happened in the game.
 
 #pragma once
 
@@ -28,34 +33,46 @@
 
 namespace Service::FS::Pa3dsTiming {
 
-inline s64 Charge(char kind, s64 computed) {
-    struct State {
-        std::map<std::pair<s64, char>, s64> pinned;
-        bool pinning = false;
-        std::ofstream out;
-        std::mutex lock;
+struct State {
+    std::map<std::pair<s64, char>, s64> pinned;
+    bool pinning = false;
+    std::ofstream out;
+    std::mutex lock;
 
-        State() {
-            if (const char* in = std::getenv("PA3DS_TIMING_IN")) {
-                std::ifstream file(in);
-                s64 ticks, charge;
-                char at;
-                while (file >> ticks >> at >> charge) {
-                    pinned[{ticks, at}] = charge;
-                }
-                pinning = true;
-                LOG_INFO(Service_FS, "pa3ds timing: {} charges pinned from {}", pinned.size(), in);
+    State() {
+        if (const char* in = std::getenv("PA3DS_TIMING_IN")) {
+            std::ifstream file(in);
+            s64 ticks, charge;
+            char at;
+            while (file >> ticks >> at >> charge) {
+                pinned[{ticks, at}] = charge;
             }
-            if (const char* path = std::getenv("PA3DS_TIMING_OUT")) {
-                out.open(path);
-            }
+            pinning = true;
+            LOG_INFO(Service_FS, "pa3ds timing: {} charges pinned from {}", pinned.size(), in);
         }
-    };
-    static State state;
+        if (const char* path = std::getenv("PA3DS_TIMING_OUT")) {
+            out.open(path);
+        }
+    }
 
+    void Write(s64 ticks, char kind, s64 charged) {
+        if (out.is_open()) {
+            // Flushed a line at a time: the rig ends the emulator by killing it.
+            out << ticks << ' ' << kind << ' ' << charged << std::endl;
+        }
+    }
+};
+
+inline State& Get() {
+    static State state;
+    return state;
+}
+
+inline s64 Charge(char kind, s64 computed) {
     if (!Settings::values.deterministic_async_operations) {
         return computed;
     }
+    State& state = Get();
     const s64 ticks = Core::System::GetInstance().CoreTiming().GetTicks();
     std::scoped_lock guard{state.lock};
     s64 charged = computed;
@@ -67,11 +84,18 @@ inline s64 Charge(char kind, s64 computed) {
             LOG_WARNING(Service_FS, "pa3ds timing: no pinned charge at tick {} ({})", ticks, kind);
         }
     }
-    if (state.out.is_open()) {
-        // Flushed a line at a time: the rig ends the emulator by killing it.
-        state.out << ticks << ' ' << kind << ' ' << charged << std::endl;
-    }
+    state.Write(ticks, kind, charged);
     return charged;
+}
+
+inline void MarkAt(s64 ticks, char kind) {
+    State& state = Get();
+    std::scoped_lock guard{state.lock};
+    state.Write(ticks, kind, 0);
+}
+
+inline void Mark(char kind) {
+    MarkAt(Core::System::GetInstance().CoreTiming().GetTicks(), kind);
 }
 
 } // namespace Service::FS::Pa3dsTiming
