@@ -4418,6 +4418,10 @@ void GMainWindow::OpenPerGameConfiguration(u64 title_id, const QString& file_nam
 
 void GMainWindow::OnMoviePlaybackCompleted() {
     OnPauseGame();
+    // Nobody is watching a -B replay, and a message box takes the foreground as it opens.
+    if (start_in_background) {
+        return;
+    }
     QMessageBox::information(this, tr("Playback Completed"), tr("Movie playback completed."));
 }
 
